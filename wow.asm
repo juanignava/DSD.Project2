@@ -1,12 +1,13 @@
 .data
 	killedEnemies:		.word 0
-	level:			.word 1 # 0 for main window
+	Level:			.word 4 # 0 for main window
 					# 1, 2 and 3 for the repective level
 	bulletColor:		.word 0x00ffff00 # Yellow
 	playerColor:		.word 0x0000ff00 # Green
 	enemyColor:		.word 0x00ff0000 # Red
 	backgroundColor:	.word 0x00000000 # Black
 	wallColor:		.word 0x00ffffff # White
+	radarColor:		.word 0x0000ffbf # LightGreen
 	
 	
 .text
@@ -234,7 +235,7 @@ SelectMode:
 BeginGame:
 	sw $zero, 0xFFFF0000	# clear the button pushed bit
 	li $t1, 1
-	sw $t1, level
+	sw $t1, Level
 	sw $zero, killedEnemies	
 	
 	
@@ -243,20 +244,88 @@ NewRound:
 	jal ClearBoard
 	
 	# Draw Level
-	lw $a2, level
+	lw $a2, Level
 	li $a3, 3
-	jal DrawLevel
+	jal DrawDots
 	
 	# Draw Killed Enemies
-
+	lw $a2, killedEnemies
+	li $a3, 34
+	jal DrawDots
 	
 	# Draw Board
+	li $a0, 22
+	li $a1, 5
+	lw $a2, wallColor
+	li $a3, 17
+	jal DrawVerticalLine
+	
+	li $a0, 42
+	li $a1, 5
+	lw $a2, wallColor
+	li $a3, 17
+	jal DrawVerticalLine
+	
+	li $a0, 22
+	li $a1, 5
+	lw $a2, wallColor
+	li $a3, 42
+	jal DrawHorizontalLine
+	
+	li $a0, 22
+	li $a1, 17
+	lw $a2, wallColor
+	li $a3, 42
+	jal DrawHorizontalLine
+	
+	li $a0, 27
+	li $a1, 9
+	lw $a2, wallColor
+	li $a3, 17
+	jal DrawVerticalLine
+	
+	li $a0, 31
+	li $a1, 5
+	lw $a2, wallColor
+	li $a3, 11
+	jal DrawVerticalLine
+	
+	li $a0, 34
+	li $a1, 13
+	lw $a2, wallColor
+	li $a3, 42
+	jal DrawHorizontalLine
 	
 	# Draw players (initial)
 	
 	# Draw enemies (initial)
 	
 	# Draw radar 
+	li $a0, 22
+	li $a1, 19
+	lw $a2, radarColor
+	li $a3, 31
+	jal DrawVerticalLine
+	
+	li $a0, 42
+	li $a1, 19
+	lw $a2, radarColor
+	li $a3, 31
+	jal DrawVerticalLine
+	
+	li $a0, 22
+	li $a1, 19
+	lw $a2, radarColor
+	li $a3, 42
+	jal DrawHorizontalLine
+	
+	li $a0, 22
+	li $a1, 31
+	lw $a2, radarColor
+	li $a3, 42
+	jal DrawHorizontalLine
+	
+	
 	
 	# Dra player in rada (initial)
 	
@@ -302,7 +371,9 @@ EndStandby:
 
 # $a2 contains the level number
 # $a3 contains the column of the leftmost level dot
-DrawLevel:
+
+DrawDots: #Used for levels and killed enemies
+
 		addi $sp, $sp, -12	# Stores regiester values to the stack
    		sw $ra, 0($sp)
    		sw $s2, 4($sp)
@@ -310,38 +381,28 @@ DrawLevel:
    		
    		move $s2, $a2
    		lw $a2, playerColor
-   		ble $s2, 5, DrawLevelRow1
-   	DrawLevelRow2:			# Draws any score values along the second row
-   	
-   		sub $t1, $s2, 6
-   		sll $t1, $t1, 1
+   		
+	DrawDotsRow1:			# Draws any score values along the first row
+		beq $s2, $zero, DrawDotsEnd
+		sub $t1, $s2, 1
+		sll $t1, $t1, 1
    		add $a0, $t1, $a3
    		li $a1, 3
    		jal DrawPoint
    		
-   		addi $s2, $s2 -1
-   		
-   		bge $s2, 6, DrawLevelRow2
-   		
-	DrawLevelRow1:			# Draws any score values along the first row
-		beq $s2, $zero, DrawLevelEnd
-		sub $t1, $s2, 1
-		sll $t1, $t1, 1
-   		add $a0, $t1, $a3
-   		li $a1, 1
-   		jal DrawPoint
-   		
    		addi $s2, $s2, -1
    		
-   		j DrawLevelRow1
+   		j DrawDotsRow1
 	
-	DrawLevelEnd:
+	DrawDotsEnd:
 		lw $ra, 0($sp)		# restores register values from the stack
 		lw $s2, 4($sp)
 		lw $a2, 8($sp)
    		addi $sp, $sp, 12
 		
 		jr $ra
+
+
 
 # $a0 contains x position, $a1 contains y position, $a2 contains the color	
 DrawPoint:
