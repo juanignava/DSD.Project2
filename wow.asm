@@ -22,6 +22,12 @@
 	PlayerLastX:		.word 0
 	PlayerLastY:		.word 0 
 	
+	Enemy1LastX:		.word 0 # this data is used to repaint previous positions
+	Enemy1LastY:		.word 0
+	Enemy2LastX:		.word 0
+	Enemy2LastY:		.word 0
+	
+	
 	
 .text
 
@@ -382,14 +388,6 @@ NewRound:
 	li $a3, 42
 	jal DrawHorizontalLine
 	
-	
-	# Draw player in radar (initial)
-	move $a0, $s0
-	move $a1, $s1
-	addi $a1, $a1, 14
-	lw $a2, radarObjColor
-	jal DrawPoint
-	
 	# Draw enemies in radar (initial)
 	move $a0, $s2
 	move $a1, $s3
@@ -437,7 +435,7 @@ DrawObjects:
 	
 	
 NoBullet:
-	# Drw over last layer
+	# Draw blank space over last player position
 	lw $a0, PlayerLastX
 	lw $a1, PlayerLastY
 	lw $a2, backgroundColor
@@ -448,14 +446,58 @@ NoBullet:
 	move $a1, $s1
 	lw $a2, playerColor
 	jal DrawPoint
-
-	# Redraw player in radar
-	move $a0, $s0
-	move $a1, $s1
+	
+	
+	# Draw blank spaces in previous enemy positions
+	lw $a0, Enemy1LastX
+	lw $a1, Enemy1LastY
+	lw $a2, backgroundColor
+	jal DrawPoint
+	
+	lw $a0, Enemy2LastX
+	lw $a1, Enemy2LastY
+	jal DrawPoint
+	
+	# Redraw enemies
+	move $a0, $s2
+	move $a1, $s3
+	lw $a2, enemyColor
+	jal DrawPoint
+	
+	move $a0, $s4
+	move $a1, $s5
+	lw $a2, enemyColor
+	jal DrawPoint
+	
+	# Draw blank spaces in previous enemy positions (Radar)
+	lw $a0, Enemy1LastX
+	lw $a1, Enemy1LastY
+	addi $a1, $a1, 14
+	lw $a2, backgroundColor
+	jal DrawPoint
+	
+	lw $a0, Enemy2LastX
+	lw $a1, Enemy2LastY
+	addi $a1, $a1, 14
+	jal DrawPoint
+	
+	# Redraw enemies in radar
+	addi $t0, $zero, -1
+	beq $s2, $t0, SkipRedraw1
+	move $a0, $s2
+	move $a1, $s3
 	addi $a1, $a1, 14
 	lw $a2, radarObjColor
 	jal DrawPoint
 	
+SkipRedraw1:
+	addi $t0, $zero, -1
+	beq $s4, $t0, StartAi
+	move $a0, $s4
+	move $a1, $s5
+	addi $a1, $a1, 14
+	lw $a2, radarObjColor
+	jal DrawPoint
 
 	
 StartAi:
@@ -521,8 +563,7 @@ MoveBulletUp:
    	addi $sp, $sp, 4
    	li $v0, 1
 	
-	jr $ra
-#	j BulletCollision
+	j BulletCollision
 
 MoveBulletRight:
 	addi $t0, $s6, 1
@@ -536,8 +577,7 @@ MoveBulletRight:
    	addi $sp, $sp, 4
    	li $v0, 1
 	
-	jr $ra
-#	j BulletCollision
+	j BulletCollision
 
 MoveBulletDown:
 	addi $t0, $s7, 1
@@ -551,8 +591,7 @@ MoveBulletDown:
    	addi $sp, $sp, 4
    	li $v0, 1
 	
-	jr $ra
-#	j BulletCollision
+	j BulletCollision
 
 MoveBulletLeft:
 	addi $t0, $s6, -1
@@ -566,8 +605,7 @@ MoveBulletLeft:
    	addi $sp, $sp, 4
    	li $v0, 1
 	
-	jr $ra
-#	j BulletCollision
+	j BulletCollision
 	
 DontMoveBullet:
 	sw $zero, bulletActive
@@ -578,6 +616,50 @@ DontMoveBullet:
    	li $v0, 0
 	
 	jr $ra
+	
+BulletCollision:
+	beq $s6, $s2, YBulletCollision1 # Check if thres collision with enemy 1
+	beq $s6, $s4, YBulletCollision2 # Check if thres collision with enemy 1
+	jr $ra
+	
+YBulletCollision1: # Collision with enemy 1
+	beq $s7, $s3, FinishBulletCollision1
+	jr $ra
+
+YBulletCollision2: # Collision with enemy 2
+	beq $s7, $s5, FinishBulletCollision2
+	jr $ra	
+	
+FinishBulletCollision1:
+	sw $s2, Enemy1LastX
+	sw $s3, Enemy1LastY
+	li $s2, -1 	# Dont show the enemy 1
+	li $s3, -1
+	j EndBulletCollision
+
+FinishBulletCollision2:
+	sw $s4, Enemy2LastX
+	sw $s5, Enemy2LastY
+	li $s4, -1 	# Dont show the enemy 2
+	li $s5, -1
+	j EndBulletCollision
+
+EndBulletCollision:
+	# se sube la cantidad de enemigos matados
+	lw $t0, killedEnemies	# Kill an enemy
+	addi $t0, $t0, 1
+	sw $t0, killedEnemies
+	
+	# se revisa si se puede subir de nivel
+	li $t1, 2
+	beq $t0, $t1, NewRoundAux
+	
+	# se elimina la bala y se coloca en estado inactivo
+	li $s6, -2 	# Dont show the enemy 2
+	li $s7, -2
+	sw $zero, bulletActive
+	
+	# se elimina el enemigo
 	
 	
 	
