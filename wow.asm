@@ -8,6 +8,12 @@
 	backgroundColor:	.word 0x00000000 # Black
 	wallColor:		.word 0x00ffffff # White
 	radarColor:		.word 0x0000ffbf # LightGreen
+	radarObjColor:		.word 0x00ffa200 # Orange
+	bulletDir:		.word 1
+					# 0 -> up
+					# 1 -> right
+					# 2 -> down
+					# 3 -> left
 	
 	
 .text
@@ -238,8 +244,31 @@ BeginGame:
 	sw $t1, Level
 	sw $zero, killedEnemies	
 	
-	
+# $s0 stores player X position
+# $s1 stores player Y position
+# $s2 stores enemy 1 X position
+# $s3 stores enemy 1 Y position
+# $s4 stores enemy 2 X position
+# $s5 stores enemy 2 Y position
+# $s6 stores bullet X position
+# $s7 stores bullet Y position
 NewRound:
+
+	# Initialize all the registers for a new level
+	li $t0, 1
+	sw $t0, bulletDir
+	
+	li $s0, 23	#Player initial coordinates
+	li $s1, 6
+	
+	li $s2, 24	# Enemy 1 initial coordinates
+	li $s3, 15
+	
+	li $s4, 33	# Enemy 2 initial coordinates
+	li $s5, 12
+	
+	li $s6, 0	# Bullet initial coordinates
+	li $s7, 0
 
 	jal ClearBoard
 	
@@ -296,9 +325,22 @@ NewRound:
 	li $a3, 42
 	jal DrawHorizontalLine
 	
-	# Draw players (initial)
+	# Draw player (initial)
+	move $a0, $s0
+	move $a1, $s1
+	lw $a2, playerColor
+	jal DrawPoint
 	
 	# Draw enemies (initial)
+	move $a0, $s2
+	move $a1, $s3
+	lw $a2, enemyColor
+	jal DrawPoint
+	
+	move $a0, $s4
+	move $a1, $s5
+	lw $a2, enemyColor
+	jal DrawPoint
 	
 	# Draw radar 
 	li $a0, 22
@@ -326,17 +368,45 @@ NewRound:
 	jal DrawHorizontalLine
 	
 	
-	
-	# Dra player in rada (initial)
+	# Draw player in radar (initial)
+	move $a0, $s0
+	move $a1, $s1
+	addi $a1, $a1, 14
+	lw $a2, radarObjColor
+	jal DrawPoint
 	
 	# Draw enemies in radar (initial)
+	move $a0, $s2
+	move $a1, $s3
+	addi $a1, $a1, 14
+	lw $a2, radarObjColor
+	jal DrawPoint
+	
+	move $a0, $s4
+	move $a1, $s5
+	addi $a1, $a1, 14
+	lw $a2, radarObjColor
+	jal DrawPoint
 	
 DrawObjects:
 	# Check for collisions
+	
 	# Move bullet
 	
 	# Redraw player
+	move $a0, $s0
+	move $a1, $s1
+	lw $a2, playerColor
+	jal DrawPoint
+
 	# Redraw player in radar
+	move $a0, $s0
+	move $a1, $s1
+	addi $a1, $a1, 14
+	lw $a2, radarObjColor
+	jal DrawPoint
+	
+
 	
 StartAi:
 	# Logic of enemies movements
@@ -360,7 +430,7 @@ Standby:
 	lw $t1, 0xFFFF0000		# check to see if a key has been pressed
 	blez $t1, Standby
 	
-	# Search for the pushed button for the respective option
+	jal AdjustPos	# See what was pushed by the user and adjust position
 	sw $zero, 0xFFFF0000
 	j Standby
 	
@@ -464,8 +534,102 @@ DrawVerticalLine:
    		
 		jr $ra
 
-
+# Adjust position, chages the player's position depending on the key pressed
+AdjustPos:
+	addi $sp, $sp, -4
+   	sw $ra, 0($sp)
+   	
+   	addi $a0, $s0, 0 # Draw over the last point
+	addi $a1, $s1, 0
+	lw $a2, backgroundColor
+	jal DrawPoint
+	addi $a1, $s1, 14 # Draw over the last point (RADAR)
+	jal DrawPoint
+   	
+	lw $a0, 0xFFFF0004	# Load button pressed
 	
+AdjustPos_up:
+	bne $a0, 119, AdjustPos_right # Letter w
+	addi $t0, $s1, -1
+	addi $a2, $t0, 0
+	addi $a1, $s0, 0
+	jal CheckNextPos
+	beq $v0, 0, Adjust_done
+	
+	addi $s1, $s1, -1
+	j Adjust_done
+	
+AdjustPos_right:
+	bne $a0, 100, AdjustPos_down # Letter d
+	addi $t0, $s0, 1
+	addi $a2, $s1, 0
+	addi $a1, $t0, 0
+	jal CheckNextPos
+	beq $v0, 0, Adjust_done
+	addi $s0, $s0, 1
+	j Adjust_done
+	
+AdjustPos_down:
+	bne $a0, 115, AdjustPos_left # Letter s
+	addi $t0, $s1, 1
+	addi $a2, $t0, 0
+	addi $a1, $s0, 0
+	jal CheckNextPos
+	beq $v0, 0, Adjust_done
+	addi $s1, $s1, 1
+	j Adjust_done
+	
+AdjustPos_left:
+	bne $a0, 97, AdjustPos_down # Letter a
+	addi $t0, $s0, -1
+	addi $a2, $s1, 0
+	addi $a1, $t0, 0
+	jal CheckNextPos
+	beq $v0, 0, Adjust_done
+	addi $s0, $s0, -1
+	
+Adjust_done:
+	lw $ra, 0($sp)		# put return back
+   	addi $sp, $sp, 4
+   		
+	jr $ra
+	
+# $a1 -> next pos x
+# $a2 -> next pos y
+
+# returns $v0 where 0 means is not an allowed position
+#		    1 means is an allowed position
+CheckNextPos:
+	blt $a1, 23, InvalidPos
+	bgt $a1, 41, InvalidPos
+	blt $a2, 6, InvalidPos
+	bgt $a2, 16, InvalidPos
+	beq $a1, 27, FirstWall
+	beq $a1, 31, SecondWall
+	beq $a2, 13, ThirdWall
+	li $v0, 1
+	jr $ra
+	
+FirstWall:
+	bgt $a2, 8, InvalidPos
+	li $v0, 1
+	jr $ra
+
+SecondWall:
+	blt $a2, 12, InvalidPos
+	li $v0, 1
+	jr $ra
+
+ThirdWall:
+	bgt $a1, 33, InvalidPos
+	li $v0, 1
+	jr $ra
+	
+InvalidPos:
+	li $v0, 0
+	jr $ra
+	
+
 	
 
 # Makes the entire bitmap display the background color (black)
