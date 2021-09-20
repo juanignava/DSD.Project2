@@ -15,6 +15,9 @@
 					# 1 -> right
 					# 2 -> down
 					# 3 -> left
+	bulletActive:		.word 0
+					# 0 -> bullet inactive
+					# 1 -> bullet active
 	
 	
 .text
@@ -268,24 +271,27 @@ NewRound:
 	li $s4, 33	# Enemy 2 initial coordinates
 	li $s5, 12
 	
-	li $s6, 0	# Bullet initial coordinates
-	li $s7, 0
+	li $s6, -2	# Bullet initial coordinates
+	li $s7, -2
 
 	jal ClearBoard
 	
 	# Draw Level
 	lw $a2, Level
 	li $a3, 3
+	lw $a1, radarColor
 	jal DrawDots
 	
 	# Draw Killed Enemies
 	lw $a2, killedEnemies
 	li $a3, 34
+	lw $a1, radarObjColor
 	jal DrawDots
 	
 	# Draw Lives
 	lw $a2, Lives
 	li $a3, 40
+	lw $a1, enemyColor
 	jal DrawDots
 	
 	# Draw Board
@@ -401,15 +407,28 @@ DrawObjects:
 	# Draw Killed Enemies
 	lw $a2, killedEnemies
 	li $a3, 25
+	lw $a1, radarObjColor
 	jal DrawDots
 	
 	# Draw Lives
 	lw $a2, Lives
 	li $a3, 40
+	lw $a1, enemyColor
 	jal DrawDots
 	
-	# Move bullet
+	# Draw bullet
+	lw $t0, bulletActive
+	beq $t0, $zero, NoBullet # dont draw if bullet is not active
+	move $a0, $s6
+	move $a1, $s7
+	lw $a2, bulletColor
+	jal DrawPoint
 	
+	# Move bullet
+	#jal MoveBullet
+	
+NoBullet:
+
 	# Redraw player
 	move $a0, $s0
 	move $a1, $s1
@@ -455,10 +474,42 @@ EndStandby:
 	j DrawObjects
 	
 	
+MoveBullet:
+	addi $a0, $s6, 0 # Draw over the last point
+	addi $a1, $s7, 0
+	lw $a2, backgroundColor
+	jal DrawPoint
+	
+	lw $t0, bulletDir
+	addi $t1, $zero, 0
+	beq $t0, $t1, MoveBulletUp
+	addi $t1, $zero, 1
+	#beq $t0, $t1, MoveBulletRight
+	addi $t1, $zero, 2
+	#beq $t0, $t1, MoveBulletDown
+	addi $t1, $zero, 3
+	#beq $t0, $t1, MoveBulletLeft
+	
+MoveBulletUp:
+	addi $t0, $s7, -1
+	addi $a2, $t0, 0
+	addi $a1, $s6, 0
+	jal CheckNextPos
+	beq $v0, 0, DontMoveBullet
+	addi $s7, $s7, -1
+	jr $ra
+#	j BulletCollision
+	
+DontMoveBullet:
+	sw $zero, bulletActive
+	jr $ra
+	
+	
+	
 
 # $a2 contains the level number
 # $a3 contains the column of the leftmost level dot
-
+# $a1 color
 DrawDots: #Used for levels and killed enemies
 
 		addi $sp, $sp, -12	# Stores regiester values to the stack
@@ -467,7 +518,7 @@ DrawDots: #Used for levels and killed enemies
    		sw $a2, 8($sp)
    		
    		move $s2, $a2
-   		lw $a2, playerColor
+   		addi $a2, $a1, 0
    		
 	DrawDotsRow1:			# Draws any score values along the first row
 		beq $s2, $zero, DrawDotsEnd
@@ -597,14 +648,85 @@ AdjustPos_down:
 	j Adjust_done
 	
 AdjustPos_left:
-	bne $a0, 97, AdjustPos_down # Letter a
+	bne $a0, 97, BulletCase_up # Letter a
 	addi $t0, $s0, -1
 	addi $a2, $s1, 0
 	addi $a1, $t0, 0
 	jal CheckNextPos
 	beq $v0, 0, Adjust_done
 	addi $s0, $s0, -1
+	j Adjust_done
+
+BulletCase_up:
+	bne $a0, 105, BulletCase_right # Letter i
+	lw $t0, bulletActive
+	bne $t0, $zero, Adjust_done
+	addi $t0, $s1, -1
+	addi $a2, $t0, 0
+	addi $a1, $s0, 0
+	jal CheckNextPos
+	beq $v0, 0, Adjust_done
+	addi $s6, $s0, 0
+	addi $s7, $s1, -1
+	li $t0, 0
+	sw $t0, bulletDir
+	li $t1, 1
+	sw $t1, bulletActive
+	j Adjust_done
 	
+	
+ BulletCase_right:
+ 	bne $a0, 108, BulletCase_down # Letter l
+ 	lw $t0, bulletActive
+	bne $t0, $zero, Adjust_done
+ 	addi $t0, $s0, 1
+	addi $a2, $s1, 0
+	addi $a1, $t0, 0
+	jal CheckNextPos
+	beq $v0, 0, Adjust_done
+	addi $s6, $s0, 1
+	addi $s7, $s1, 0
+	li $t0, 1
+	sw $t0, bulletDir
+	sw $t0, bulletActive
+	j Adjust_done
+ 	
+ BulletCase_down:
+ 	bne $a0, 107, BulletCase_left # Letter k
+ 	lw $t0, bulletActive
+	bne $t0, $zero, Adjust_done
+ 	addi $t0, $s1, 1
+	addi $a2, $t0, 0
+	addi $a1, $s0, 0
+	jal CheckNextPos
+	beq $v0, 0, Adjust_done
+	addi $s6, $s0, 0
+	addi $s7, $s1, 1
+	li $t0, 2
+	sw $t0, bulletDir
+	li $t1, 1
+	sw $t1, bulletActive
+	j Adjust_done
+ 	
+ BulletCase_left:
+ 	bne $a0, 106, Adjust_done # Letter j
+ 	lw $t0, bulletActive
+	bne $t0, $zero, Adjust_done
+ 	addi $t0, $s0, -1
+	addi $a2, $s1, 0
+	addi $a1, $t0, 0
+	jal CheckNextPos
+	beq $v0, 0, Adjust_done
+	addi $s6, $s0, -1
+	addi $s7, $s1,0
+	li $t0, 3
+	sw $t0, bulletDir
+	li $t1, 1
+	sw $t1, bulletActive
+	j Adjust_done
+	
+ 	
+			
 Adjust_done:
 	lw $ra, 0($sp)		# put return back
    	addi $sp, $sp, 4
@@ -674,7 +796,7 @@ endCollision:
 	lw $t0, Lives	# Lose a live
 	addi $t0, $t0, 1
 	sw $t0, Lives
-	li $t1, 10
+	li $t1, 3
 	beq $t0, $t1, EndGame	# If looses all lives lose game
 
 	lw $t0, killedEnemies	# Kill an enemy
@@ -684,14 +806,56 @@ endCollision:
 	beq $t0, $t1, NewRoundAux
 	
 	jr $ra
-	
+
+# New Round logic, starts a new round if the level is <4 the screen shows LU (Level up)	
+# If Level == 4 then the program moves to GameWon
 NewRoundAux:
 	lw $t0, Level
 	addi $t0, $t0, 1
 	sw $t0, Level
 	li $t1, 4
-	beq $t0, $t1, EndGame
+	beq $t0, $t1, GameWon
 	sw $zero, killedEnemies
+	
+	jal ClearBoard
+	
+	# Letter L
+	li $a0, 14
+	li $a1, 6
+	lw $a2, wallColor
+	li $a3, 26
+	jal DrawVerticalLine
+	
+	li $a0, 14
+	li $a1, 26
+	lw $a2, wallColor
+	li $a3, 24
+	jal DrawHorizontalLine
+	
+	# Letter O
+		
+	li $a0, 40
+	li $a1, 6
+	lw $a2, wallColor
+	li $a3, 26
+	jal DrawVerticalLine
+		
+	li $a0, 40
+	li $a1, 26
+	lw $a2, wallColor
+	li $a3, 50
+	jal DrawHorizontalLine
+		
+	li $a0, 50
+	li $a1, 6
+	lw $a2, wallColor
+	li $a3, 26
+	jal DrawVerticalLine
+	
+	li $a0, 1000 	#
+	li $v0, 32	# pause for 1s
+	syscall		#
+	
 	j NewRound
 
 # Makes the entire bitmap display the background color (black)
@@ -706,9 +870,137 @@ ClearBoard:
 		j StartCLoop
 	EndCLoop:
 		jr $ra
-		
+
+# This is the screen showed when the player wins		
+GameWon:
+	jal ClearBoard
+	# Letter G
+	li $a0, 14
+	li $a1, 6
+	lw $a2, wallColor
+	li $a3, 26
+	jal DrawVerticalLine
+	
+
+	li $a0, 24
+	li $a1, 16
+	lw $a2, wallColor
+	li $a3, 26
+	jal DrawVerticalLine
+	
+	li $a0, 14
+	li $a1, 6
+	lw $a2, wallColor
+	li $a3, 24
+	jal DrawHorizontalLine
+	
+	li $a0, 19
+	li $a1, 16
+	lw $a2, wallColor
+	li $a3, 24
+	jal DrawHorizontalLine
+	
+	li $a0, 14
+	li $a1, 26
+	lw $a2, wallColor
+	li $a3, 24
+	jal DrawHorizontalLine
+	
+	# Letter G
+	li $a0, 40
+	li $a1, 6
+	lw $a2, wallColor
+	li $a3, 26
+	jal DrawVerticalLine
+	
+
+	li $a0, 50
+	li $a1, 16
+	lw $a2, wallColor
+	li $a3, 26
+	jal DrawVerticalLine
+	
+	li $a0, 40
+	li $a1, 6
+	lw $a2, wallColor
+	li $a3, 50
+	jal DrawHorizontalLine
+	
+	li $a0, 45
+	li $a1, 16
+	lw $a2, wallColor
+	li $a3, 50
+	jal DrawHorizontalLine
+	
+	li $a0, 40
+	li $a1, 26
+	lw $a2, wallColor
+	li $a3, 50
+	jal DrawHorizontalLine
+	
+	j WaitForReset
+					
+# This is the screen shown when the player loses all his lives							
 EndGame:
 	jal ClearBoard
+	
+	# Letter G
+	li $a0, 14
+	li $a1, 6
+	lw $a2, wallColor
+	li $a3, 26
+	jal DrawVerticalLine
+	
+
+	li $a0, 24
+	li $a1, 16
+	lw $a2, wallColor
+	li $a3, 26
+	jal DrawVerticalLine
+	
+	li $a0, 14
+	li $a1, 6
+	lw $a2, wallColor
+	li $a3, 24
+	jal DrawHorizontalLine
+	
+	li $a0, 19
+	li $a1, 16
+	lw $a2, wallColor
+	li $a3, 24
+	jal DrawHorizontalLine
+	
+	li $a0, 14
+	li $a1, 26
+	lw $a2, wallColor
+	li $a3, 24
+	jal DrawHorizontalLine
+
+	# Letter O
+		
+	li $a0, 40
+	li $a1, 6
+	lw $a2, wallColor
+	li $a3, 26
+	jal DrawVerticalLine
+		
+	li $a0, 40
+	li $a1, 26
+	lw $a2, wallColor
+	li $a3, 50
+	jal DrawHorizontalLine
+		
+	li $a0, 40
+	li $a1, 6
+	lw $a2, wallColor
+	li $a3, 50
+	jal DrawHorizontalLine
+		
+	li $a0, 50
+	li $a1, 6
+	lw $a2, wallColor
+	li $a3, 26
+	jal DrawVerticalLine
 	
 	
 WaitForReset:		
@@ -728,6 +1020,6 @@ Reset:
 	sw $zero, Lives
 	sw $zero, killedEnemies
 	li $a0, 1000 	#
-	li $v0, 32	# pause for 10 milisec
+	li $v0, 32	# pause for 1s
 	syscall		#
 	j NewGame
