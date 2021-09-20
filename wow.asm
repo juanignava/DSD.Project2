@@ -18,6 +18,9 @@
 	bulletActive:		.word 0
 					# 0 -> bullet inactive
 					# 1 -> bullet active
+					
+	PlayerLastX:		.word 0
+	PlayerLastY:		.word 0 
 	
 	
 .text
@@ -434,7 +437,12 @@ DrawObjects:
 	
 	
 NoBullet:
-
+	# Drw over last layer
+	lw $a0, PlayerLastX
+	lw $a1, PlayerLastY
+	lw $a2, backgroundColor
+	jal DrawPoint
+	
 	# Redraw player
 	move $a0, $s0
 	move $a1, $s1
@@ -463,7 +471,7 @@ Begin_standby:
 	
 Standby:
 	blez $t0, EndStandby
-	li $a0, 10	#
+	li $a0, 50	#
 	li $v0, 32	# pause for 10 milisec
 	syscall		#
 	
@@ -473,8 +481,10 @@ Standby:
 	blez $t1, Standby
 	
 	jal AdjustPos	# See what was pushed by the user and adjust position
+
+	
 	sw $zero, 0xFFFF0000
-	j Standby
+	#j Standby
 	
 EndStandby:
 	j DrawObjects
@@ -493,11 +503,11 @@ MoveBullet:
 	addi $t1, $zero, 0
 	beq $t0, $t1, MoveBulletUp
 	addi $t1, $zero, 1
-	#beq $t0, $t1, MoveBulletRight
+	beq $t0, $t1, MoveBulletRight
 	addi $t1, $zero, 2
-	#beq $t0, $t1, MoveBulletDown
+	beq $t0, $t1, MoveBulletDown
 	addi $t1, $zero, 3
-	#beq $t0, $t1, MoveBulletLeft
+	beq $t0, $t1, MoveBulletLeft
 	
 MoveBulletUp:
 	addi $t0, $s7, -1
@@ -506,6 +516,51 @@ MoveBulletUp:
 	jal CheckNextPos
 	beq $v0, 0, DontMoveBullet
 	addi $s7, $s7, -1
+	
+	lw $ra, 0($sp)		# put return back
+   	addi $sp, $sp, 4
+   	li $v0, 1
+	
+	jr $ra
+#	j BulletCollision
+
+MoveBulletRight:
+	addi $t0, $s6, 1
+	addi $a1, $t0, 0
+	addi $a2, $s7, 0
+	jal CheckNextPos
+	beq $v0, 0, DontMoveBullet
+	addi $s6, $s6, 1
+	
+	lw $ra, 0($sp)		# put return back
+   	addi $sp, $sp, 4
+   	li $v0, 1
+	
+	jr $ra
+#	j BulletCollision
+
+MoveBulletDown:
+	addi $t0, $s7, 1
+	addi $a2, $t0, 0
+	addi $a1, $s6, 0
+	jal CheckNextPos
+	beq $v0, 0, DontMoveBullet
+	addi $s7, $s7, 1
+
+	lw $ra, 0($sp)		# put return back
+   	addi $sp, $sp, 4
+   	li $v0, 1
+	
+	jr $ra
+#	j BulletCollision
+
+MoveBulletLeft:
+	addi $t0, $s6, -1
+	addi $a1, $t0, 0
+	addi $a2, $s7, 0
+	jal CheckNextPos
+	beq $v0, 0, DontMoveBullet
+	addi $s6, $s6, -1
 	
 	lw $ra, 0($sp)		# put return back
    	addi $sp, $sp, 4
@@ -627,12 +682,14 @@ AdjustPos:
 	addi $sp, $sp, -4
    	sw $ra, 0($sp)
    	
-   	addi $a0, $s0, 0 # Draw over the last point
-	addi $a1, $s1, 0
-	lw $a2, backgroundColor
-	jal DrawPoint
-	addi $a1, $s1, 14 # Draw over the last point (RADAR)
-	jal DrawPoint
+   	sw $s0, PlayerLastX
+   	sw $s1, PlayerLastY
+   	#addi $a0, $s0, 0 # Draw over the last point
+	#addi $a1, $s1, 0
+	#lw $a2, backgroundColor
+	#jal DrawPoint
+	#addi $a1, $s1, 14 # Draw over the last point (RADAR)
+	#jal DrawPoint
    	
 	lw $a0, 0xFFFF0004	# Load button pressed
 	
@@ -645,6 +702,7 @@ AdjustPos_up:
 	beq $v0, 0, Adjust_done
 	
 	addi $s1, $s1, -1
+	
 	j Adjust_done
 	
 AdjustPos_right:
@@ -748,6 +806,8 @@ BulletCase_up:
  	
 			
 Adjust_done:
+	
+	
 	lw $ra, 0($sp)		# put return back
    	addi $sp, $sp, 4
    		
