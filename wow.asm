@@ -419,13 +419,19 @@ DrawObjects:
 	# Draw bullet
 	lw $t0, bulletActive
 	beq $t0, $zero, NoBullet # dont draw if bullet is not active
+	
+	# Move bullet
+	jal MoveBullet
+	
+	beq $v0, $zero, NoBullet
 	move $a0, $s6
 	move $a1, $s7
 	lw $a2, bulletColor
 	jal DrawPoint
 	
-	# Move bullet
-	#jal MoveBullet
+	
+	
+	
 	
 NoBullet:
 
@@ -475,6 +481,9 @@ EndStandby:
 	
 	
 MoveBullet:
+	addi $sp, $sp, -4
+   	sw $ra, 0($sp)
+   	
 	addi $a0, $s6, 0 # Draw over the last point
 	addi $a1, $s7, 0
 	lw $a2, backgroundColor
@@ -497,11 +506,22 @@ MoveBulletUp:
 	jal CheckNextPos
 	beq $v0, 0, DontMoveBullet
 	addi $s7, $s7, -1
+	
+	lw $ra, 0($sp)		# put return back
+   	addi $sp, $sp, 4
+   	li $v0, 1
+	
 	jr $ra
 #	j BulletCollision
 	
 DontMoveBullet:
 	sw $zero, bulletActive
+
+	
+	lw $ra, 0($sp)		# put return back
+   	addi $sp, $sp, 4
+   	li $v0, 0
+	
 	jr $ra
 	
 	
