@@ -2,6 +2,7 @@
 	killedEnemies:		.word 0
 	Level:			.word 4 # 0 for main window
 					# 1, 2 and 3 for the repective level
+	Lives:			.word 0
 	bulletColor:		.word 0x00ffff00 # Yellow
 	playerColor:		.word 0x0000ff00 # Green
 	enemyColor:		.word 0x00ff0000 # Red
@@ -282,6 +283,11 @@ NewRound:
 	li $a3, 34
 	jal DrawDots
 	
+	# Draw Lives
+	lw $a2, Lives
+	li $a3, 40
+	jal DrawDots
+	
 	# Draw Board
 	li $a0, 22
 	li $a1, 5
@@ -390,6 +396,17 @@ NewRound:
 	
 DrawObjects:
 	# Check for collisions
+	jal PlayerEnemyCollision
+	
+	# Draw Killed Enemies
+	lw $a2, killedEnemies
+	li $a3, 25
+	jal DrawDots
+	
+	# Draw Lives
+	lw $a2, Lives
+	li $a3, 40
+	jal DrawDots
 	
 	# Move bullet
 	
@@ -628,9 +645,54 @@ ThirdWall:
 InvalidPos:
 	li $v0, 0
 	jr $ra
-	
 
+# Checks if theres a collision between the player end the enemy	
+PlayerEnemyCollision:
+	beq $s0, $s2, YCollision1
+	beq $s0, $s4, YCollision2
+	jr $ra
 	
+YCollision1:
+	beq $s1, $s3, FinishCollision1
+	jr $ra
+	
+YCollision2:
+	beq $s1, $s5, FinishCollision2
+	jr $ra
+
+FinishCollision1:
+	li $s2, -1 	# Dont show the enemy 1
+	li $s3, -1
+	j endCollision
+	
+FinishCollision2:
+	li $s4, -1	#Dont show the enemy 2
+	li $s5, -1
+
+endCollision:
+
+	lw $t0, Lives	# Lose a live
+	addi $t0, $t0, 1
+	sw $t0, Lives
+	li $t1, 10
+	beq $t0, $t1, EndGame	# If looses all lives lose game
+
+	lw $t0, killedEnemies	# Kill an enemy
+	addi $t0, $t0, 1
+	sw $t0, killedEnemies
+	li $t1, 2
+	beq $t0, $t1, NewRoundAux
+	
+	jr $ra
+	
+NewRoundAux:
+	lw $t0, Level
+	addi $t0, $t0, 1
+	sw $t0, Level
+	li $t1, 4
+	beq $t0, $t1, EndGame
+	sw $zero, killedEnemies
+	j NewRound
 
 # Makes the entire bitmap display the background color (black)
 ClearBoard:
@@ -644,3 +706,28 @@ ClearBoard:
 		j StartCLoop
 	EndCLoop:
 		jr $ra
+		
+EndGame:
+	jal ClearBoard
+	
+	
+WaitForReset:		
+	li $a0, 10 	#
+	li $v0, 32	# pause for 10 milisec
+	syscall		#
+		
+	lw $t0, 0xFFFF0000
+	li $t1, 114 # r for reset
+	beq $t0, $t1, WaitForReset
+		
+	j Reset
+	
+Reset:
+	li $t0, 1
+	sw $t0, Level
+	sw $zero, Lives
+	sw $zero, killedEnemies
+	li $a0, 1000 	#
+	li $v0, 32	# pause for 10 milisec
+	syscall		#
+	j NewGame
