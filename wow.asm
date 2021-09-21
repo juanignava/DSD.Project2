@@ -29,11 +29,17 @@
 	Enemy2LastY:		.word 0
 	
 	
-	EnemiesSpeed:		.word 12 # The smaller the number the fastest
+	EnemiesSpeed:		.word 10 # The smaller the number the fastest
 					# 12 for level 1
 					# 8 for level 2
 					# 6 for level 3
 	EnemiesSpeedCicle:	.word 0
+	
+	InvisibleEnemy1X:	.word 0 # Invisible enemy 1
+	InvisibleEnemy1Y:	.word 0 
+	
+	InvisibleEnemy2X:	.word 0 # Invisible enemy 2
+	InvisibleEnemy2Y:	.word 0 
 	
 	
 	
@@ -420,6 +426,43 @@ NewRound:
 	jal DrawPoint
 	
 DrawObjects:
+
+	li $a0, 24
+	li $a1, 24
+	lw $a2, backgroundColor
+	jal DrawPoint
+	
+	li $a0, 30
+	li $a1, 28
+	lw $a2, backgroundColor
+	jal DrawPoint
+
+	lw $t0, Level
+	li $t1, 1
+	bgt $t0, $t1, DrawInvisibleEnemie1
+	j QuestionLevel3
+	
+DrawInvisibleEnemie1:
+	lw $a0, InvisibleEnemy1X
+	lw $a1, InvisibleEnemy1Y
+	addi $a1, $a1, 14
+	beq $zero, $a0, QuestionLevel3
+	lw $a2, radarObjColor
+	jal DrawPoint
+
+QuestionLevel3:	
+	lw $t0, Level
+	li $t1, 2
+	bgt $t0, $t1, DrawInvisibleEnemie2
+	j StartAi
+	
+DrawInvisibleEnemie2:
+	lw $a0, InvisibleEnemy2X
+	lw $a1, InvisibleEnemy2Y
+	addi $a1, $a1, 14
+	beq $zero, $a0, StartAi
+	lw $a2, radarObjColor
+	jal DrawPoint
 
 StartAi:
 	# Logic of enemies movements
@@ -1091,6 +1134,10 @@ InvalidPos:
 PlayerEnemyCollision:
 	beq $s0, $s2, YCollision1
 	beq $s0, $s4, YCollision2
+	lw $t0, InvisibleEnemy1X
+	beq $s0, $t0, YCollision3
+	lw $t0, InvisibleEnemy2X
+	beq $s0, $t0, YCollision4
 	jr $ra
 	
 YCollision1:
@@ -1100,15 +1147,44 @@ YCollision1:
 YCollision2:
 	beq $s1, $s5, FinishCollision2
 	jr $ra
+	
+YCollision3:
+	lw $t0, InvisibleEnemy1Y
+	beq $t0, $s1, FinishCollision3
+	jr $ra
+
+YCollision4:
+	lw $t0, InvisibleEnemy2Y
+	beq $t0, $s1, FinishCollision4
+	jr $ra
 
 FinishCollision1:
 	li $s2, -1 	# Dont show the enemy 1
 	li $s3, -1
+	lw $t0, killedEnemies	# Kill an enemy
+	addi $t0, $t0, 1
+	sw $t0, killedEnemies
 	j endCollision
 	
 FinishCollision2:
 	li $s4, -1	#Dont show the enemy 2
 	li $s5, -1
+	lw $t0, killedEnemies	# Kill an enemy
+	addi $t0, $t0, 1
+	sw $t0, killedEnemies
+	j endCollision
+	
+FinishCollision3:
+
+	sw $zero, InvisibleEnemy1X
+	sw $zero, InvisibleEnemy1Y
+	j endCollision
+
+FinishCollision4:
+
+	sw $zero, InvisibleEnemy2X
+	sw $zero, InvisibleEnemy2Y
+	j endCollision
 
 endCollision:
 
@@ -1119,8 +1195,8 @@ endCollision:
 	beq $t0, $t1, EndGame	# If looses all lives lose game
 
 	lw $t0, killedEnemies	# Kill an enemy
-	addi $t0, $t0, 1
-	sw $t0, killedEnemies
+	#addi $t0, $t0, 1
+	#sw $t0, killedEnemies
 	li $t1, 2
 	beq $t0, $t1, NewRoundAux
 	
@@ -1129,8 +1205,24 @@ endCollision:
 # New Round logic, starts a new round if the level is <4 the screen shows LU (Level up)	
 # If Level == 4 then the program moves to GameWon
 NewRoundAux:
-	li $t0, 7
-	sw $t0, EnemiesSpeed
+	#li $t0, 7		# Update speed of a new level
+	#sw $t0, EnemiesSpeed
+	
+	li $t0, 24			# Update invisible coordinates
+	sw $t0, InvisibleEnemy1X
+	li $t0, 10
+	sw $t0, InvisibleEnemy1Y
+	
+	li $t1, 2
+	lw $t0, Level
+	bne $t1, $t0, IgnoreInvisible2
+	
+	li $t0, 30			# Update invisible coordinates
+	sw $t0, InvisibleEnemy2X
+	li $t0, 14
+	sw $t0, InvisibleEnemy2Y
+
+IgnoreInvisible2:
 
 	lw $t0, Level
 	addi $t0, $t0, 1
@@ -1344,6 +1436,10 @@ Reset:
 	li $t0, 12
 	sw $t0, EnemiesSpeed
 	sw $zero, EnemiesSpeedCicle
+	sw $zero, InvisibleEnemy1X
+	sw $zero, InvisibleEnemy1Y
+	sw $zero, InvisibleEnemy2X
+	sw $zero, InvisibleEnemy2Y
 	li $a0, 1000 	#
 	li $v0, 32	# pause for 1s
 	syscall		#

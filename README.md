@@ -24,4 +24,10 @@ Press space to start game
 
 move the player with:  ASWD
 
-shoot with the arrows.
+shoot with: IJKL
+
+## Game Dinamic
+
+There are three levels in which you should kill the two enemies that move, but be carefull there may be invisible obstacles depending on the level. These invisible obstacles could make you loose a life and you only have three. 
+
+The blue dots on the left indicate your current level, the orange dots in the middle indicate the killed enemies of the current level and the red dots on the right indicate the lives that you have lost (you only have three)
