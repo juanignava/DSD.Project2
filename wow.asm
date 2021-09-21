@@ -10,6 +10,7 @@
 	wallColor:		.word 0x00ffffff # White
 	radarColor:		.word 0x0000ffbf # LightGreen
 	radarObjColor:		.word 0x00ffa200 # Orange
+	gateColor:		.word 0x009403fc # Purple
 	bulletDir:		.word 1
 					# 0 -> up
 					# 1 -> right
@@ -28,7 +29,10 @@
 	Enemy2LastY:		.word 0
 	
 	
-	EnemiesSpeed:		.word 5 # The smaller the number the fastest
+	EnemiesSpeed:		.word 12 # The smaller the number the fastest
+					# 12 for level 1
+					# 8 for level 2
+					# 6 for level 3
 	EnemiesSpeedCicle:	.word 0
 	
 	
@@ -350,6 +354,16 @@ NewRound:
 	li $a3, 42
 	jal DrawHorizontalLine
 	
+	li $a0, 25
+	li $a1, 5
+	lw $a2, gateColor
+	jal DrawPoint
+	
+	li $a0, 36
+	li $a1, 17
+	lw $a2, gateColor
+	jal DrawPoint
+	
 	# Draw player (initial)
 	move $a0, $s0
 	move $a1, $s1
@@ -406,6 +420,126 @@ NewRound:
 	jal DrawPoint
 	
 DrawObjects:
+
+StartAi:
+	# Logic of enemies movements
+	sw $s2, Enemy1LastX
+	sw $s3, Enemy1LastY
+	lw $t0, EnemiesSpeed
+	lw $t1, EnemiesSpeedCicle
+	bne $t0, $t1, endAi
+	sw $zero, EnemiesSpeedCicle
+
+	# Enemy 1
+	blt $s0, $s2, MoveEnemy1XNeg
+	blt $s2, $s0, MoveEnemy1XPos
+	j AskEnemy1Y
+	
+MoveEnemy1XNeg:
+	addi $a1, $s2, -1
+	addi $a2, $s3, 0
+	jal CheckNextPos
+	beq $v0, $zero, AskEnemy1Y
+	#sw $s2, Enemy1LastX
+	#sw $s3, Enemy1LastY
+	addi $s2, $s2, -1
+	j AiPlayer2
+	
+MoveEnemy1XPos:
+	addi $a1, $s2, 1
+	addi $a2, $s3, 0
+	jal CheckNextPos
+	beq $v0, $zero, AskEnemy1Y
+	#sw $s2, Enemy1LastX
+	#sw $s3, Enemy1LastY
+	addi $s2, $s2, 1
+	j AiPlayer2
+	
+AskEnemy1Y:
+	blt $s1, $s3, MoveEnemy1YNeg
+	blt $s3, $s1, MoveEnemy1YPos
+	j AiPlayer2
+	
+MoveEnemy1YNeg:
+	addi $a1, $s2, 0
+	addi $a2, $s3, -1
+	jal CheckNextPos
+	beq $v0, $zero, AiPlayer2
+	#sw $s2, Enemy1LastX
+	#sw $s3, Enemy1LastY
+	addi $s3, $s3, -1
+	j AiPlayer2
+	
+MoveEnemy1YPos:
+	addi $a1, $s2, 0
+	addi $a2, $s3, 1
+	jal CheckNextPos
+	beq $v0, $zero, AiPlayer2
+	#sw $s2, Enemy1LastX
+	#sw $s3, Enemy1LastY
+	addi $s3, $s3, 1
+	j AiPlayer2
+
+AiPlayer2:	
+	sw $s4, Enemy2LastX
+	sw $s5, Enemy2LastY
+	
+	# Enemy 2
+	blt $s0, $s4, MoveEnemy2XNeg
+	blt $s4, $s0, MoveEnemy2XPos
+	j AskEnemy2Y
+	
+MoveEnemy2XNeg:
+	addi $a1, $s4, -1
+	addi $a2, $s5, 0
+	jal CheckNextPos
+	beq $v0, $zero, AskEnemy2Y
+	#sw $s2, Enemy1LastX
+	#sw $s3, Enemy1LastY
+	addi $s4, $s4, -1
+	j endAi
+	
+MoveEnemy2XPos:
+	addi $a1, $s4, 1
+	addi $a2, $s5, 0
+	jal CheckNextPos
+	beq $v0, $zero, AskEnemy2Y
+	#sw $s2, Enemy1LastX
+	#sw $s3, Enemy1LastY
+	addi $s4, $s4, 1
+	j endAi
+	
+AskEnemy2Y:
+	blt $s1, $s5, MoveEnemy2YNeg
+	blt $s5, $s1, MoveEnemy2YPos
+	j endAi
+	
+MoveEnemy2YNeg:
+	addi $a1, $s4, 0
+	addi $a2, $s5, -1
+	jal CheckNextPos
+	beq $v0, $zero, endAi
+	#sw $s2, Enemy1LastX
+	#sw $s3, Enemy1LastY
+	addi $s5, $s5, -1
+	j endAi
+	
+MoveEnemy2YPos:
+	addi $a1, $s4, 0
+	addi $a2, $s5, 1
+	jal CheckNextPos
+	beq $v0, $zero, endAi
+	#sw $s2, Enemy1LastX
+	#sw $s3, Enemy1LastY
+	addi $s5, $s5, 1
+	j endAi
+
+endAi:
+	lw $t1, EnemiesSpeedCicle
+	addi $t1, $t1, 1
+	sw $t1, EnemiesSpeedCicle
+	
+
 	# Check for collisions
 	jal PlayerEnemyCollision
 	
@@ -494,7 +628,7 @@ NoBullet:
 SkipRedraw1:
 
 	addi $t0, $zero, -1
-	beq $s4, $t0, StartAi
+	beq $s4, $t0, Begin_standby
 	move $a0, $s4
 	move $a1, $s5
 	addi $a1, $a1, 14
@@ -502,71 +636,8 @@ SkipRedraw1:
 	jal DrawPoint
 
 	
-StartAi:
-	# Logic of enemies movements
-	lw $t0, EnemiesSpeed
-	lw $t1, EnemiesSpeedCicle
-	bne $t0, $t1, endAi
-	sw $zero, EnemiesSpeedCicle
 
-	# Enemy 1
-	blt $s0, $s2, MoveEnemy1XNeg
-	blt $s2, $s0, MoveEnemy1XPos
-	j AskEnemy1Y
-	
-MoveEnemy1XNeg:
-	addi $a1, $s2, -1
-	addi $a2, $s3, 0
-	jal CheckNextPos
-	beq $v0, $zero, AskEnemy1Y
-	sw $s2, Enemy1LastX
-	sw $s3, Enemy1LastY
-	addi $s2, $s2, -1
-	j endAi
-	
-MoveEnemy1XPos:
-	addi $a1, $s2, 1
-	addi $a2, $s3, 0
-	jal CheckNextPos
-	beq $v0, $zero, AskEnemy1Y
-	sw $s2, Enemy1LastX
-	sw $s3, Enemy1LastY
-	addi $s2, $s2, 1
-	j endAi
-	
-AskEnemy1Y:
-	blt $s1, $s3, MoveEnemy1YNeg
-	blt $s3, $s1, MoveEnemy1YPos
-	j endAi
-	
-MoveEnemy1YNeg:
-	addi $a1, $s2, 0
-	addi $a2, $s3, -1
-	jal CheckNextPos
-	beq $v0, $zero, endAi
-	sw $s2, Enemy1LastX
-	sw $s3, Enemy1LastY
-	addi $s3, $s3, -1
-	j endAi
-	
-MoveEnemy1YPos:
-	addi $a1, $s2, 0
-	addi $a2, $s3, 1
-	jal CheckNextPos
-	beq $v0, $zero, endAi
-	sw $s2, Enemy1LastX
-	sw $s3, Enemy1LastY
-	addi $s3, $s3, 1
-	j endAi
 
-endAi:
-	lw $t1, EnemiesSpeedCicle
-	addi $t1, $t1, 1
-	sw $t1, EnemiesSpeedCicle
-	
-	
-	# Redraw enemies
-	# Redraw enemies in radar
 	
 # Wait and read buttons
 Begin_standby:
@@ -843,9 +914,14 @@ AdjustPos_up:
 	addi $a1, $s0, 0
 	jal CheckNextPos
 	beq $v0, 0, Adjust_done
-	
+	beq $v0, 2, FirstGateJump
 	addi $s1, $s1, -1
 	
+	j Adjust_done
+	
+FirstGateJump:
+	li $s0, 36
+	li $s1, 16
 	j Adjust_done
 	
 AdjustPos_right:
@@ -865,7 +941,13 @@ AdjustPos_down:
 	addi $a1, $s0, 0
 	jal CheckNextPos
 	beq $v0, 0, Adjust_done
+	beq $v0, 3, SecondGateJump
 	addi $s1, $s1, 1
+	j Adjust_done
+	
+SecondGateJump:
+	li $s0, 25
+	li $s1, 6
 	j Adjust_done
 	
 AdjustPos_left:
@@ -961,8 +1043,22 @@ Adjust_done:
 
 # returns $v0 where 0 means is not an allowed position
 #		    1 means is an allowed position
+#		    2 means the first gate (up)
+#  		    3 means the second gate (down)
 CheckNextPos:
-	blt $a1, 23, InvalidPos
+	bne $a1, 25, SecondGate # Check if equals the coordinates of the first gate
+	bne $a2, 5, SecondGate
+	li $v0, 2
+	jr $ra
+
+SecondGate:
+	bne $a1, 36, WallCheck # Check if equals the coordinates of the second gate
+	bne $a2, 17, WallCheck
+	li $v0, 3
+	jr $ra
+
+WallCheck:
+	blt $a1, 23, InvalidPos # Check if equals one of the walls in the board
 	bgt $a1, 41, InvalidPos
 	blt $a2, 6, InvalidPos
 	bgt $a2, 16, InvalidPos
@@ -1033,6 +1129,9 @@ endCollision:
 # New Round logic, starts a new round if the level is <4 the screen shows LU (Level up)	
 # If Level == 4 then the program moves to GameWon
 NewRoundAux:
+	li $t0, 7
+	sw $t0, EnemiesSpeed
+
 	lw $t0, Level
 	addi $t0, $t0, 1
 	sw $t0, Level
@@ -1055,7 +1154,7 @@ NewRoundAux:
 	li $a3, 24
 	jal DrawHorizontalLine
 	
-	# Letter O
+	# Letter U
 		
 	li $a0, 40
 	li $a1, 6
@@ -1242,6 +1341,9 @@ Reset:
 	sw $t0, Level
 	sw $zero, Lives
 	sw $zero, killedEnemies
+	li $t0, 12
+	sw $t0, EnemiesSpeed
+	sw $zero, EnemiesSpeedCicle
 	li $a0, 1000 	#
 	li $v0, 32	# pause for 1s
 	syscall		#
