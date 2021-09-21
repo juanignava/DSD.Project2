@@ -28,6 +28,10 @@
 	Enemy2LastY:		.word 0
 	
 	
+	EnemiesSpeed:		.word 5 # The smaller the number the fastest
+	EnemiesSpeedCicle:	.word 0
+	
+	
 	
 .text
 
@@ -431,9 +435,6 @@ DrawObjects:
 	jal DrawPoint
 	
 	
-	
-	
-	
 NoBullet:
 	# Draw blank space over last player position
 	lw $a0, PlayerLastX
@@ -491,6 +492,7 @@ NoBullet:
 	jal DrawPoint
 	
 SkipRedraw1:
+
 	addi $t0, $zero, -1
 	beq $s4, $t0, StartAi
 	move $a0, $s4
@@ -502,8 +504,67 @@ SkipRedraw1:
 	
 StartAi:
 	# Logic of enemies movements
+	lw $t0, EnemiesSpeed
+	lw $t1, EnemiesSpeedCicle
+	bne $t0, $t1, endAi
+	sw $zero, EnemiesSpeedCicle
+
+	# Enemy 1
+	blt $s0, $s2, MoveEnemy1XNeg
+	blt $s2, $s0, MoveEnemy1XPos
+	j AskEnemy1Y
+	
+MoveEnemy1XNeg:
+	addi $a1, $s2, -1
+	addi $a2, $s3, 0
+	jal CheckNextPos
+	beq $v0, $zero, AskEnemy1Y
+	sw $s2, Enemy1LastX
+	sw $s3, Enemy1LastY
+	addi $s2, $s2, -1
+	j endAi
+	
+MoveEnemy1XPos:
+	addi $a1, $s2, 1
+	addi $a2, $s3, 0
+	jal CheckNextPos
+	beq $v0, $zero, AskEnemy1Y
+	sw $s2, Enemy1LastX
+	sw $s3, Enemy1LastY
+	addi $s2, $s2, 1
+	j endAi
+	
+AskEnemy1Y:
+	blt $s1, $s3, MoveEnemy1YNeg
+	blt $s3, $s1, MoveEnemy1YPos
+	j endAi
+	
+MoveEnemy1YNeg:
+	addi $a1, $s2, 0
+	addi $a2, $s3, -1
+	jal CheckNextPos
+	beq $v0, $zero, endAi
+	sw $s2, Enemy1LastX
+	sw $s3, Enemy1LastY
+	addi $s3, $s3, -1
+	j endAi
+	
+MoveEnemy1YPos:
+	addi $a1, $s2, 0
+	addi $a2, $s3, 1
+	jal CheckNextPos
+	beq $v0, $zero, endAi
+	sw $s2, Enemy1LastX
+	sw $s3, Enemy1LastY
+	addi $s3, $s3, 1
+	j endAi
 
 endAi:
+	lw $t1, EnemiesSpeedCicle
+	addi $t1, $t1, 1
+	sw $t1, EnemiesSpeedCicle
+	
+	
 	# Redraw enemies
 	# Redraw enemies in radar
 	
